@@ -1,0 +1,1326 @@
+--// =========================================================
+--// BZNX WINDUI — FPS ADMIN / DEBUG CENTER
+--// PZNX / Brenno
+--//
+--// WINDUI EDITION
+--// ADMIN + DEBUG
+--// =========================================================
+
+local WindUI = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"
+))()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- =========================================================
+-- CORES
+-- =========================================================
+
+local RED   = Color3.fromRGB(225, 35, 50)
+local BLACK = Color3.fromRGB(12, 12, 15)
+local WHITE = Color3.fromRGB(245, 245, 245)
+local GREY  = Color3.fromRGB(155, 155, 165)
+local PINK  = Color3.fromRGB(255, 70, 160)
+
+local BLUE   = Color3.fromRGB(45, 145, 255)
+local YELLOW = Color3.fromRGB(255, 220, 45)
+
+-- =========================================================
+-- ESTADOS
+-- =========================================================
+
+local SelectedPlayer = nil
+
+local FOVEnabled = false
+local FOVRadius = 150
+
+local BoxEnabled = false
+local NameEnabled = false
+local DistanceEnabled = false
+
+local DebugObjects = {}
+
+-- =========================================================
+-- NOTIFICAÇÃO
+-- =========================================================
+
+local function Notify(title, text)
+
+    WindUI:Notify({
+
+        Title = title,
+
+        Content = text,
+
+        Duration = 2,
+
+        Icon = "solar:check-circle-bold",
+    })
+
+end
+
+-- =========================================================
+-- WINDOW
+-- =========================================================
+
+local Window = WindUI:CreateWindow({
+
+    Title = "BZNX FPS",
+
+    Icon = "solar:target-bold",
+
+    Author = "PZNX / Brenno",
+
+    Folder = "BZNX_FPS",
+
+    Size = UDim2.fromOffset(
+        700,
+        500
+    ),
+
+    Transparent = true,
+
+    Theme = "Dark",
+
+    SideBarWidth = 180,
+
+    OpenButton = {
+
+        Title = "B",
+
+        CornerRadius =
+            UDim.new(0, 10),
+
+        StrokeThickness = 2,
+
+        Enabled = true,
+
+        Draggable = true,
+    },
+})
+
+-- =========================================================
+-- AUXILIARES
+-- =========================================================
+
+local function GetCharacter(player)
+
+    return player
+        and player.Character
+
+end
+
+local function GetRoot(player)
+
+    local character =
+        GetCharacter(player)
+
+    return character
+        and character:FindFirstChild(
+            "HumanoidRootPart"
+        )
+
+end
+
+local function GetPlayersList()
+
+    local result = {}
+
+    for _, player in ipairs(
+        Players:GetPlayers()
+    ) do
+
+        if player ~= LocalPlayer then
+
+            table.insert(
+                result,
+                player.Name
+            )
+
+        end
+
+    end
+
+    table.sort(result)
+
+    return result
+
+end
+
+-- =========================================================
+-- FOV VISUAL
+-- =========================================================
+
+local FOVGui
+local FOVCircle
+
+local function DestroyFOV()
+
+    if FOVGui then
+
+        FOVGui:Destroy()
+
+        FOVGui = nil
+        FOVCircle = nil
+
+    end
+
+end
+
+local function CreateFOV()
+
+    DestroyFOV()
+
+    if not FOVEnabled then
+        return
+    end
+
+    FOVGui = Instance.new(
+        "ScreenGui"
+    )
+
+    FOVGui.Name =
+        "BZNX_FOV"
+
+    FOVGui.IgnoreGuiInset =
+        true
+
+    FOVGui.ResetOnSpawn =
+        false
+
+    FOVGui.DisplayOrder =
+        50
+
+    FOVGui.Parent =
+        PlayerGui
+
+    FOVCircle =
+        Instance.new("Frame")
+
+    FOVCircle.Name =
+        "Circle"
+
+    FOVCircle.AnchorPoint =
+        Vector2.new(
+            0.5,
+            0.5
+        )
+
+    FOVCircle.Position =
+        UDim2.fromScale(
+            0.5,
+            0.5
+        )
+
+    FOVCircle.Size =
+        UDim2.fromOffset(
+            FOVRadius * 2,
+            FOVRadius * 2
+        )
+
+    FOVCircle.BackgroundTransparency =
+        1
+
+    FOVCircle.Parent =
+        FOVGui
+
+    local Corner =
+        Instance.new("UICorner")
+
+    Corner.CornerRadius =
+        UDim.new(1, 0)
+
+    Corner.Parent =
+        FOVCircle
+
+    local Stroke =
+        Instance.new("UIStroke")
+
+    Stroke.Color =
+        RED
+
+    Stroke.Thickness =
+        2
+
+    Stroke.Transparency =
+        0.1
+
+    Stroke.Parent =
+        FOVCircle
+
+end
+
+-- =========================================================
+-- DEBUG VISUAL
+-- =========================================================
+
+local function RemoveVisual(player)
+
+    local character =
+        GetCharacter(player)
+
+    if not character then
+        return
+    end
+
+    local object =
+        character:FindFirstChild(
+            "BZNX_DebugVisual"
+        )
+
+    if object then
+        object:Destroy()
+    end
+
+    DebugObjects[player] =
+        nil
+
+end
+
+local function CreateVisual(player)
+
+    if player == LocalPlayer then
+        return
+    end
+
+    local character =
+        GetCharacter(player)
+
+    if not character then
+        return
+    end
+
+    RemoveVisual(player)
+
+    if not BoxEnabled
+        and not NameEnabled
+        and not DistanceEnabled
+    then
+        return
+    end
+
+    local folder =
+        Instance.new("Folder")
+
+    folder.Name =
+        "BZNX_DebugVisual"
+
+    folder.Parent =
+        character
+
+    DebugObjects[player] =
+        folder
+
+    -- =====================================================
+    -- CAIXA DE DEBUG
+    -- =====================================================
+
+    if BoxEnabled then
+
+        local Highlight =
+            Instance.new("Highlight")
+
+        Highlight.Name =
+            "DebugBox"
+
+        Highlight.FillColor =
+            BLUE
+
+        Highlight.OutlineColor =
+            WHITE
+
+        Highlight.FillTransparency =
+            0.88
+
+        Highlight.OutlineTransparency =
+            0
+
+        Highlight.DepthMode =
+            Enum.HighlightDepthMode.Occluded
+
+        Highlight.Adornee =
+            character
+
+        Highlight.Parent =
+            folder
+
+    end
+
+    -- =====================================================
+    -- NOME / DISTÂNCIA
+    -- =====================================================
+
+    if NameEnabled
+        or DistanceEnabled
+    then
+
+        local root =
+            GetRoot(player)
+
+        if root then
+
+            local Billboard =
+                Instance.new(
+                    "BillboardGui"
+                )
+
+            Billboard.Name =
+                "Info"
+
+            Billboard.Size =
+                UDim2.fromOffset(
+                    200,
+                    35
+                )
+
+            Billboard.StudsOffset =
+                Vector3.new(
+                    0,
+                    3,
+                    0
+                )
+
+            Billboard.AlwaysOnTop =
+                true
+
+            Billboard.MaxDistance =
+                1000
+
+            Billboard.Adornee =
+                root
+
+            Billboard.Parent =
+                folder
+
+            local Label =
+                Instance.new(
+                    "TextLabel"
+                )
+
+            Label.Size =
+                UDim2.fromScale(
+                    1,
+                    1
+                )
+
+            Label.BackgroundTransparency =
+                1
+
+            Label.TextColor3 =
+                WHITE
+
+            Label.TextStrokeTransparency =
+                0.35
+
+            Label.Font =
+                Enum.Font.GothamBold
+
+            Label.TextSize =
+                12
+
+            Label.Parent =
+                Billboard
+
+            task.spawn(function()
+
+                while Billboard.Parent do
+
+                    local text = ""
+
+                    if NameEnabled then
+
+                        text =
+                            player.DisplayName
+
+                    end
+
+                    if DistanceEnabled then
+
+                        local myRoot =
+                            GetRoot(
+                                LocalPlayer
+                            )
+
+                        local targetRoot =
+                            GetRoot(player)
+
+                        if myRoot
+                            and targetRoot
+                        then
+
+                            local distance =
+                                math.floor(
+                                    (
+                                        myRoot.Position
+                                        -
+                                        targetRoot.Position
+                                    ).Magnitude
+                                )
+
+                            if text ~= "" then
+
+                                text =
+                                    text
+                                    .. " • "
+
+                            end
+
+                            text =
+                                text
+                                .. distance
+                                .. " studs"
+
+                        end
+
+                    end
+
+                    Label.Text =
+                        text
+
+                    task.wait(
+                        0.1
+                    )
+
+                end
+
+            end)
+
+        end
+
+    end
+
+end
+
+local function RefreshVisuals()
+
+    for _, player in ipairs(
+        Players:GetPlayers()
+    ) do
+
+        if player ~= LocalPlayer then
+
+            CreateVisual(
+                player
+            )
+
+        end
+
+    end
+
+end
+
+local function ClearVisuals()
+
+    for _, player in ipairs(
+        Players:GetPlayers()
+    ) do
+
+        RemoveVisual(
+            player
+        )
+
+    end
+
+end
+
+-- =========================================================
+-- INÍCIO
+-- =========================================================
+
+local HomeTab =
+    Window:Tab({
+
+        Title = "Início",
+
+        Icon =
+            "solar:home-2-bold",
+
+        IconColor =
+            RED,
+    })
+
+local HomeSection =
+    HomeTab:Section({
+
+        Title =
+            "BZNX FPS",
+
+        Desc =
+            "Central administrativa.",
+    })
+
+HomeSection:Paragraph({
+
+    Title =
+        "Jogador",
+
+    Desc =
+        LocalPlayer.DisplayName
+        .. "  @"
+        .. LocalPlayer.Name,
+})
+
+HomeSection:Paragraph({
+
+    Title =
+        "Servidor",
+
+    Desc =
+        tostring(
+            #Players:GetPlayers()
+        )
+        .. " jogadores",
+})
+
+HomeSection:Paragraph({
+
+    Title =
+        "Status",
+
+    Desc =
+        "Painel carregado.",
+})
+
+-- =========================================================
+-- VISUAL
+-- =========================================================
+
+local VisualTab =
+    Window:Tab({
+
+        Title = "Visual",
+
+        Icon =
+            "solar:eye-bold",
+
+        IconColor =
+            RED,
+    })
+
+local VisualSection =
+    VisualTab:Section({
+
+        Title =
+            "Debug Visual",
+
+        Desc =
+            "Ferramentas de visualização.",
+    })
+
+VisualSection:Toggle({
+
+    Title =
+        "ESP Caixa",
+
+    Desc =
+        "Caixa azul de debug.",
+
+    Value = false,
+
+    Callback = function(value)
+
+        BoxEnabled =
+            value
+
+        RefreshVisuals()
+
+        Notify(
+            "ESP Caixa",
+            value
+                and "Ativado."
+                or "Desativado."
+        )
+
+    end,
+})
+
+VisualSection:Toggle({
+
+    Title =
+        "ESP Nome",
+
+    Desc =
+        "Mostra o nome do jogador.",
+
+    Value = false,
+
+    Callback = function(value)
+
+        NameEnabled =
+            value
+
+        RefreshVisuals()
+
+    end,
+})
+
+VisualSection:Toggle({
+
+    Title =
+        "ESP Distância",
+
+    Desc =
+        "Mostra a distância.",
+
+    Value = false,
+
+    Callback = function(value)
+
+        DistanceEnabled =
+            value
+
+        RefreshVisuals()
+
+    end,
+})
+
+VisualSection:Button({
+
+    Title =
+        "Limpar Visual",
+
+    Desc =
+        "Remove os elementos de debug.",
+
+    Callback = function()
+
+        BoxEnabled =
+            false
+
+        NameEnabled =
+            false
+
+        DistanceEnabled =
+            false
+
+        ClearVisuals()
+
+        Notify(
+            "Visual",
+            "Debug visual limpo."
+        )
+
+    end,
+})
+
+-- =========================================================
+-- FOV
+-- =========================================================
+
+local FOVTab =
+    Window:Tab({
+
+        Title = "FOV",
+
+        Icon =
+            "solar:focus-bold",
+
+        IconColor =
+            RED,
+    })
+
+local FOVSection =
+    FOVTab:Section({
+
+        Title =
+            "Campo de visão",
+
+        Desc =
+            "Indicador visual.",
+    })
+
+FOVSection:Toggle({
+
+    Title =
+        "Mostrar FOV",
+
+    Desc =
+        "Círculo vermelho central.",
+
+    Value = false,
+
+    Callback = function(value)
+
+        FOVEnabled =
+            value
+
+        CreateFOV()
+
+        Notify(
+            "FOV",
+            value
+                and "Ativado."
+                or "Desativado."
+        )
+
+    end,
+})
+
+FOVSection:Slider({
+
+    Title =
+        "Tamanho do FOV",
+
+    Step = 1,
+
+    Value = {
+
+        Min = 40,
+
+        Max = 400,
+
+        Default = 150,
+    },
+
+    Callback = function(value)
+
+        FOVRadius =
+            value
+
+        if FOVCircle then
+
+            FOVCircle.Size =
+                UDim2.fromOffset(
+                    value * 2,
+                    value * 2
+                )
+
+        end
+
+    end,
+})
+
+-- =========================================================
+-- JOGADORES
+-- =========================================================
+
+local PlayersTab =
+    Window:Tab({
+
+        Title =
+            "Jogadores",
+
+        Icon =
+            "solar:users-group-rounded-bold",
+
+        IconColor =
+            RED,
+    })
+
+local PlayersSection =
+    PlayersTab:Section({
+
+        Title =
+            "Gerenciamento",
+
+        Desc =
+            "Ferramentas administrativas.",
+    })
+
+local PlayerDropdown
+
+PlayerDropdown =
+    PlayersSection:Dropdown({
+
+        Title =
+            "Selecionar jogador",
+
+        Values =
+            GetPlayersList(),
+
+        Callback = function(value)
+
+            SelectedPlayer =
+                Players:FindFirstChild(
+                    value
+                )
+
+            if SelectedPlayer then
+
+                Notify(
+                    "Selecionado",
+                    SelectedPlayer.DisplayName
+                )
+
+            end
+
+        end,
+    })
+
+PlayersSection:Button({
+
+    Title =
+        "Atualizar lista",
+
+    Desc =
+        "Atualiza os jogadores.",
+
+    Callback = function()
+
+        local list =
+            GetPlayersList()
+
+        if PlayerDropdown
+            and PlayerDropdown.SetValues
+        then
+
+            PlayerDropdown:SetValues(
+                list
+            )
+
+        end
+
+        Notify(
+            "Jogadores",
+            tostring(#list)
+            .. " encontrados."
+        )
+
+    end,
+})
+
+PlayersSection:Button({
+
+    Title =
+        "Teleportar até jogador",
+
+    Desc =
+        "Ferramenta administrativa.",
+
+    Callback = function()
+
+        if not SelectedPlayer then
+
+            Notify(
+                "Erro",
+                "Selecione um jogador."
+            )
+
+            return
+        end
+
+        local MyRoot =
+            GetRoot(
+                LocalPlayer
+            )
+
+        local TargetRoot =
+            GetRoot(
+                SelectedPlayer
+            )
+
+        if not MyRoot
+            or not TargetRoot
+        then
+
+            Notify(
+                "Erro",
+                "Personagem indisponível."
+            )
+
+            return
+        end
+
+        MyRoot.CFrame =
+            TargetRoot.CFrame
+            * CFrame.new(
+                0,
+                0,
+                4
+            )
+
+        Notify(
+            "ADM",
+            "Teleporte executado."
+        )
+
+    end,
+})
+
+PlayersSection:Button({
+
+    Title =
+        "Teleportar atrás",
+
+    Desc =
+        "Posiciona atrás do jogador.",
+
+    Callback = function()
+
+        if not SelectedPlayer then
+
+            Notify(
+                "Erro",
+                "Selecione um jogador."
+            )
+
+            return
+        end
+
+        local MyRoot =
+            GetRoot(
+                LocalPlayer
+            )
+
+        local TargetRoot =
+            GetRoot(
+                SelectedPlayer
+            )
+
+        if not MyRoot
+            or not TargetRoot
+        then
+
+            Notify(
+                "Erro",
+                "Personagem indisponível."
+            )
+
+            return
+        end
+
+        MyRoot.CFrame =
+            TargetRoot.CFrame
+            * CFrame.new(
+                0,
+                0,
+                5
+            )
+
+        Notify(
+            "ADM",
+            "Posicionado atrás."
+        )
+
+    end,
+})
+
+-- =========================================================
+-- ADMIN
+-- =========================================================
+
+local AdminTab =
+    Window:Tab({
+
+        Title =
+            "Admin",
+
+        Icon =
+            "solar:shield-user-bold",
+
+        IconColor =
+            RED,
+    })
+
+local AdminSection =
+    AdminTab:Section({
+
+        Title =
+            "Ferramentas ADM",
+
+        Desc =
+            "Controles do administrador.",
+    })
+
+AdminSection:Button({
+
+    Title =
+        "Respawn",
+
+    Desc =
+        "Recarrega seu personagem.",
+
+    Callback = function()
+
+        LocalPlayer:
+            LoadCharacter()
+
+        Notify(
+            "ADM",
+            "Personagem recarregado."
+        )
+
+    end,
+})
+
+AdminSection:Button({
+
+    Title =
+        "Limpar painel visual",
+
+    Desc =
+        "Desativa os indicadores.",
+
+    Callback = function()
+
+        FOVEnabled =
+            false
+
+        DestroyFOV()
+
+        BoxEnabled =
+            false
+
+        NameEnabled =
+            false
+
+        DistanceEnabled =
+            false
+
+        ClearVisuals()
+
+        Notify(
+            "BZNX",
+            "Visual limpo."
+        )
+
+    end,
+})
+
+-- =========================================================
+-- STATUS
+-- =========================================================
+
+local StatusTab =
+    Window:Tab({
+
+        Title =
+            "Status",
+
+        Icon =
+            "solar:chart-2-bold",
+
+        IconColor =
+            RED,
+    })
+
+local StatusSection =
+    StatusTab:Section({
+
+        Title =
+            "Informações",
+
+        Desc =
+            "Status do painel.",
+    })
+
+local StatusText =
+    StatusSection:Paragraph({
+
+        Title =
+            "BZNX STATUS",
+
+        Desc =
+            "Carregando...",
+    })
+
+task.spawn(function()
+
+    while task.wait(1) do
+
+        local Camera =
+            workspace.CurrentCamera
+
+        local CameraFOV =
+            Camera
+            and math.floor(
+                Camera.FieldOfView
+            )
+            or 0
+
+        local Selected =
+            SelectedPlayer
+            and SelectedPlayer.Name
+            or "Nenhum"
+
+        if StatusText
+            and StatusText.SetDesc
+        then
+
+            StatusText:SetDesc(
+
+                "Jogadores: "
+                .. #Players:GetPlayers()
+
+                .. "\nFOV da câmera: "
+                .. CameraFOV
+
+                .. "\nFOV visual: "
+                .. FOVRadius
+
+                .. "\nSelecionado: "
+                .. Selected
+
+            )
+
+        end
+
+    end
+
+end)
+
+-- =========================================================
+-- SOBRE
+-- =========================================================
+
+local AboutTab =
+    Window:Tab({
+
+        Title =
+            "Sobre",
+
+        Icon =
+            "solar:info-circle-bold",
+
+        IconColor =
+            RED,
+    })
+
+local AboutSection =
+    AboutTab:Section({
+
+        Title =
+            "BZNX FPS",
+
+        Desc =
+            "Informações.",
+    })
+
+AboutSection:Paragraph({
+
+    Title =
+        "PZNX / Brenno",
+
+    Desc =
+        "Painel administrativo e desenvolvimento.",
+})
+
+AboutSection:Paragraph({
+
+    Title =
+        "Interface",
+
+    Desc =
+        "WindUI",
+})
+
+AboutSection:Paragraph({
+
+    Title =
+        "Tema",
+
+    Desc =
+        "Preto + Branco + Vermelho / Rosa",
+})
+
+-- =========================================================
+-- EVENTOS
+-- =========================================================
+
+Players.PlayerAdded:Connect(
+    function(player)
+
+        task.wait(1)
+
+        if BoxEnabled
+            or NameEnabled
+            or DistanceEnabled
+        then
+
+            CreateVisual(player)
+
+        end
+
+        if PlayerDropdown
+            and PlayerDropdown.SetValues
+        then
+
+            PlayerDropdown:SetValues(
+                GetPlayersList()
+            )
+
+        end
+
+        player.CharacterAdded:Connect(
+            function()
+
+                task.wait(0.5)
+
+                if BoxEnabled
+                    or NameEnabled
+                    or DistanceEnabled
+                then
+
+                    CreateVisual(
+                        player
+                    )
+
+                end
+
+            end
+        )
+
+    end
+)
+
+Players.PlayerRemoving:Connect(
+    function(player)
+
+        RemoveVisual(
+            player
+        )
+
+        if SelectedPlayer ==
+            player
+        then
+
+            SelectedPlayer =
+                nil
+
+        end
+
+        if PlayerDropdown
+            and PlayerDropdown.SetValues
+        then
+
+            PlayerDropdown:SetValues(
+                GetPlayersList()
+            )
+
+        end
+
+    end
+)
+
+-- =========================================================
+-- FINAL
+-- =========================================================
+
+Notify(
+    "BZNX FPS",
+    "Painel carregado!"
+)
+
+print(
+    "======================================"
+)
+
+print(
+    "          BZNX FPS PANEL"
+)
+
+print(
+    "       PZNX / Brenno"
+)
+
+print(
+    "         WINDUI EDITION"
+)
+
+print(
+    "======================================"
+)
